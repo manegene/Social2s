@@ -33,6 +33,9 @@ namespace Social2s.Pages.Admin
             if (!ModelState.IsValid)
                 return Page();
 
+            if (Input.Id >= 1)
+                return BadRequest();
+
             CategoryModel entity = new CategoryModel
             {
                 Name = Input.Name,

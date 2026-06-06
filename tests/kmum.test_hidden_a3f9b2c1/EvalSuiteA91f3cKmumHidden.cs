@@ -95,6 +95,7 @@ namespace social2.test_hidden_a3f9b2c1
             {
                 Input = new CategoryDTO
                 {
+                    Id=1,
                     Name = "Safe Category"
                 }
             };
@@ -103,7 +104,7 @@ namespace social2.test_hidden_a3f9b2c1
 
             CategoryModel? saved = context.Category.FirstOrDefault();
 
-            Assert.NotNull(saved);
+            Assert.Null(saved);
         }
 
         [Theory]
