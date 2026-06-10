@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Build.Framework;
 using Social2s.Areas.Identity.Data;
-using Social2s.Models.Amin;
+using Social2s.Models.Admin;
 using Social2s.Models.User;
 
 namespace Social2s.Pages.Admin

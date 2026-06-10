@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Social2s.Areas.Identity.Data;
-using Social2s.Models.Amin;
+using Social2s.Models.Admin;
 using Social2s.Models.LinkedModels;
 
 namespace Social2s.Pages.Admin

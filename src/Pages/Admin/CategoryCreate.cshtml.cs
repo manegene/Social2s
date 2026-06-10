@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Social2s.Models.Amin;
+using Social2s.Models.Admin;
 using Social2s.Models.Category;
 
 namespace Social2s.Pages.Admin
