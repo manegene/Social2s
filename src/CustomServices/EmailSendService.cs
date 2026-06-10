@@ -8,16 +8,10 @@ using Social2s.Models.Contact;
 
 namespace Social2s.CustomServices
 {
-    public class EmailSendService : IEmailSender
+    public class EmailSendService(IOptions<EmailAuth> EmailAuthOption, DataContext Dcontext) : IEmailSender
     {
-        public EmailAuth EmailAuthOption { get; }
-        private readonly DataContext _Dcontext;
-
-        public EmailSendService(IOptions<EmailAuth> EmailAuthOption, DataContext Dcontext)
-        {
-            this.EmailAuthOption = EmailAuthOption.Value;
-            _Dcontext = Dcontext;
-        }
+        public EmailAuth EmailAuthOption { get; } = EmailAuthOption.Value;
+        private readonly DataContext _Dcontext = Dcontext;
 
         public async Task SendEmailAsync(string email, string subject, string htmlMessage)
         {
