@@ -19,7 +19,6 @@ namespace social2.test_hidden_a3f9b2c1
     public class EvalSuiteA91f3cKmumHidden(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
     {
         private readonly HttpClient _client = factory.CreateClient();
-
         private static IndexModel CreateModel(DataContext context,
         Mock<IEmailSender> emailMock,
         Mock<UserManager<UserModel>> userManagerMock)
@@ -45,7 +44,6 @@ namespace social2.test_hidden_a3f9b2c1
 
             return model;
         }
-
         private static DataContext GetInMemoryDb()
         {
             DbContextOptions<DataContext> options = new DbContextOptionsBuilder<DataContext>()
@@ -116,7 +114,5 @@ namespace social2.test_hidden_a3f9b2c1
 
             Assert.Contains("The ConnectionString property has not been initialized", content);
         }
-
-
     }
 }

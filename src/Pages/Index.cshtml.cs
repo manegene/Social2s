@@ -23,60 +23,45 @@ namespace Social2s.Pages
         private readonly DataContext _dataContext = dataContext;
         private readonly IEmailSender _emailSender = emailSender;
         private readonly UserManager<UserModel> _userManager = userManager;
-
         private const int MAX_BODY_LENGTH = 5000;
         private const int MAX_JSON_LENGTH = 10000;
-
         public HomeModel Home { get; set; }
         public List<UserPublicModel> Users { get; set; }
         public List<CategoryModel> Categories { get; set; }
         public List<PublicProfile_Category> PublicProfiles { get; set; }
-
         [BindProperty]
         public ContactModel EmailDetails { get; set; }
-
         [BindProperty]
         public int ProfId { get; set; }
-
         public List<UserImageModel> UImage { get; set; }
-
         [BindProperty]
         public List<UserImageModel> SelectedUserImages { get; set; }
-
         public UserModel LoggedIn { get; set; }
         public bool IsSubscribed { get; set; }
-
         [TempData]
         public string ResponseMessage { get; set; }
         public async Task<ActionResult> OnGet()
         {
             try
             {
-
                 LoggedIn = await _userManager.GetUserAsync(User);
                 if (LoggedIn != null)
                 {
                     IsSubscribed = await _dataContext.Subscriptions.AnyAsync(usr => usr.UserProfile == LoggedIn);
                 }
-               ;
-
-                PublicProfiles = [.. (from UserPublicModel upm in _dataContext.PublicProfile
+                ;
+                PublicProfiles = [.. from UserPublicModel upm in _dataContext.PublicProfile
                          join CategoryModel cm in _dataContext.Category
                          on upm.CategoryId equals cm.Id
                          select new PublicProfile_Category
                          {
                              Profile=upm,
                              Category=cm
+                         }];
 
-                         })];
-
-
-                //get site home information
                 Home = await _dataContext.Home.FirstOrDefaultAsync();
 
-                //images for all users
                 UImage = await _dataContext.Images.ToListAsync();
-
 
                 return Page();
             }
@@ -88,60 +73,92 @@ namespace Social2s.Pages
             }
         }
 
-        //get user specific photos
         public async Task<ActionResult> OnGetSelectedUserAsync(int profileId)
         {
             if (profileId <= 0)
-                profileId = 1;
-            SelectedUserImages = await _dataContext.Images.Where(id => id.UserProfile.Id == profileId).ToListAsync();
+            {
+                throw new InvalidOperationException("operation not allowed");
+            }
 
+            UserModel user = await _userManager.GetUserAsync(User);
+            if (user == null)
+                return Unauthorized();
+
+            bool ownsProfile = await _dataContext.PublicProfile
+                .AnyAsync(p => p.Id == profileId && p.User == user);
+
+            if (!ownsProfile)
+                return Forbid();
+
+            SelectedUserImages = await _dataContext.Images.Where(id => id.UserProfile.Id == profileId).ToListAsync();
 
             return new JsonResult(SelectedUserImages.ToJson());
         }
 
         public async Task<IActionResult> OnPostSendEmail()
-
         {
-            //StringBuilder message = new();
-            //string adds = EmailDetails.Receiver;
+            if (EmailDetails == null)
+                return BadRequest();
 
-            //get user by using the public profile id 
-            UserModel destinationuser = await _dataContext.PublicProfile.Where(profid => profid.Id == Convert.ToInt32(EmailDetails.Receiver)).Select(usr => usr.User).FirstOrDefaultAsync();
+            if (!int.TryParse(EmailDetails.Receiver, out int receiverId))
+                return BadRequest("Invalid receiver");
 
-            //now retrieve the receiver email address
-            EmailDetails.Receiver = await _dataContext.Users.Where(uid => uid == destinationuser).Select(uemail => uemail.Email).FirstOrDefaultAsync();
+            if (string.IsNullOrWhiteSpace(EmailDetails.Body) ||
+                EmailDetails.Body.Length > MAX_BODY_LENGTH)
+                return BadRequest("Invalid message body");
 
-            //message.Append("You received email from:" + EmailDetails.Sender); 
-            //send email to the service provider
-            await _emailSender.SendEmailAsync(EmailDetails.Receiver, EmailDetails.Title, EmailDetails.Body);
+            UserModel senderUser = await _userManager.GetUserAsync(User);
+            if (senderUser == null)
+                return Unauthorized();
 
-            //send acknowledgement message to sender
-            string senderReponse = "Your message was sent successfully";
-            await _emailSender.SendEmailAsync(EmailDetails.Sender, EmailDetails.Title, senderReponse);
+            string senderEmail = senderUser.Email;
 
-            //lastly
-            //update sender email address for the just sent email
-            var CurrMsg = await _dataContext.ContactQueue.
-                Where(em => (em.Receiver == EmailDetails.Receiver) && (em.Title == EmailDetails.Title) && (em.Body == EmailDetails.Body)).
-                FirstOrDefaultAsync();
-            if (CurrMsg != null)
-            {
-                CurrMsg.Sender = EmailDetails.Sender;
-                await _dataContext.SaveChangesAsync();
-            }
+            UserModel destinationUser = await _dataContext.PublicProfile
+                .Where(p => p.Id == receiverId)
+                .Select(p => p.User)
+                .FirstOrDefaultAsync();
+
+            if (destinationUser == null)
+                return NotFound("Receiver not found");
+
+            string receiverEmail = await _dataContext.Users
+                .Where(u => u == destinationUser)
+                .Select(u => u.Email)
+                .FirstOrDefaultAsync();
+
+            await _emailSender.SendEmailAsync(receiverEmail, EmailDetails.Title, EmailDetails.Body);
+
+            await _emailSender.SendEmailAsync(senderEmail, EmailDetails.Title, "Your message was sent successfully");
 
             ResponseMessage = "email message sent successfully";
             return RedirectToPage();
         }
 
-        //update user subscription
         public async Task<ActionResult> OnPostUpdateSubscriptionAsync(string TransactionID, string JsonData)
         {
-            var user = await _userManager.GetUserAsync(User);
+            if (string.IsNullOrWhiteSpace(TransactionID))
+                return new JsonResult("error: operation not allowed");
 
-            var publicUser = await _dataContext.PublicProfile.Where(puid => puid.User == user).FirstOrDefaultAsync();
+            if (!string.IsNullOrEmpty(JsonData) && JsonData.Length > MAX_JSON_LENGTH)
+                return new JsonResult("error: payload too large");
 
-            var subscription = new Subscription
+            UserModel user = await _userManager.GetUserAsync(User);
+            if (user == null)
+                return Unauthorized();
+
+            UserPublicModel publicUser = await _dataContext.PublicProfile
+                .FirstOrDefaultAsync(p => p.User == user);
+
+            if (publicUser == null)
+                return NotFound("unknown user profile");
+
+            bool exists = await _dataContext.Subscriptions
+                .AnyAsync(s => s.TransId == TransactionID);
+
+            if (exists)
+                return new JsonResult("duplicate transaction");
+
+            Subscription subscription = new Subscription
             {
                 SubStaDate = DateTime.UtcNow.ToString(),
                 SubEndDate = DateTime.UtcNow.AddYears(1).ToString(),
@@ -153,13 +170,13 @@ namespace Social2s.Pages
             };
 
             await _dataContext.AddAsync(subscription);
-            var posted = _dataContext.SaveChangesAsync();
 
-            //database operation failed
-            if (posted.Result <= 0)
+            int result = await _dataContext.SaveChangesAsync();
+
+            if (result <= 0)
                 return new JsonResult("user error: Error saving the values");
 
-            return new JsonResult("subscriptin update successful");
+            return new JsonResult("subscription update successful");
         }
     }
 }
