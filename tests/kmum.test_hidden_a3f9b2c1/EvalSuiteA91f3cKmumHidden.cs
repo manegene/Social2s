@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Social2s.Areas.Identity.Data;
 using Social2s.Models.Category;
+using Social2s.Models.Contact;
 using Social2s.Models.User;
 using Social2s.Pages;
 using Social2s.Pages.Admin;
@@ -114,5 +115,6 @@ namespace social2.test_hidden_a3f9b2c1
 
             Assert.Contains("The ConnectionString property has not been initialized", content);
         }
+        
     }
 }
